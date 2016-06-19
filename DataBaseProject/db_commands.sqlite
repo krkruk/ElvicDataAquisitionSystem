@@ -1,0 +1,35 @@
+CREATE TABLE DataRecords (
+ID_DataRecords INTEGER PRIMARY KEY AUTOINCREMENT,
+Date TEXT NOT NULL
+);
+
+CREATE TABLE GPS (
+ID_GPS INTEGER PRIMARY KEY AUTOINCREMENT,
+ID_DataRecords INTEGER NOT NULL,
+Time REAL NOT NULL,
+Data BLOB NOT NULL,
+FOREIGN KEY(ID_DataRecords) REFERENCES DataRecords(ID_DataRecords)
+);
+
+CREATE TABLE PowerInverter (
+ID_PowerInverter INTEGER PRIMARY KEY AUTOINCREMENT,
+ID_DataRecords INTEGER NOT NULL,
+Time REAL NOT NULL,
+Data BLOB NOT NULL,
+FOREIGN KEY(ID_DataRecords) REFERENCES DataRecords(ID_DataRecords)
+);
+
+SELECT DataRecords.*, GPS.*
+FROM DataRecords
+INNER JOIN GPS
+ON DataRecords.ID_DataRecords == GPS.ID_DataRecords
+WHERE DataRecords.ID_DataRecords==92
+
+SELECT *
+FROM GPS
+WHERE ID_DataRecords=3;
+
+SELECT DataRecords.*, PowerInverter.*
+FROM DataRecords
+INNER JOIN PowerInverter
+ON DataRecords.ID_DataRecords=8 AND DataRecords.ID_DataRecords == PowerInverter.ID_DataRecords;

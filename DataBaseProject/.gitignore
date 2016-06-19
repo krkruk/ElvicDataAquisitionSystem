@@ -1,0 +1,11 @@
+#ignore IDE files
+./.idea
+
+#ignore temp files
+*.vpp~*
+
+#ignore pycache
+__pycache__
+__pycache__
+
+*.pyc

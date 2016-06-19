@@ -1,0 +1,14 @@
+#ignore IDE files
+.idea
+
+#ignore temp files
+DataBaseProject/*.vpp~*
+
+#ignore pycache
+src/__pycache__
+prototype/__pycache__
+engine/__pycache__
+tests/__pycache__
+
+*.pyc
+*.db
