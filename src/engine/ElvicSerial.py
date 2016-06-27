@@ -8,8 +8,12 @@ UART_DISCONNECTED = "read failed: device reports readiness " \
 
 
 class SerialMultiprocessReceiver(mp.Process):
-    def __init__(self, queue=mp.Queue, serial_params=None):
-        mp.Process.__init__(self)
+    def __init__(self, queue=mp.Queue, serial_params={}):
+        """Initializes a serial device.
+        queue - multiprocessing queue. It comprises the data
+                received form the device
+        serial_params - a dictionary of parameters required by PySerial"""
+        super(SerialMultiprocessReceiver, self).__init__()
         self.queue = queue
         self.kill_process = mp.Event()
         self.kill_process.clear()
@@ -43,4 +47,5 @@ class SerialMultiprocessReceiver(mp.Process):
         self.queue.put(line)
 
     def kill_serial(self):
+        """Kill a process if it is needed. Exits the main process loop."""
         self.kill_process.set()

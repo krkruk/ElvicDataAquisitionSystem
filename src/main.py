@@ -1,14 +1,18 @@
 from engine import ElvicSerial as es
 from engine import ElvicDB as db
 from engine import SavingSignal
+from engine import XMPPSender
+from engine import Device
 from serial.tools import list_ports
 import sqlite3
 import multiprocessing as mp
 import queue
 import time
+import json
 
 
-SLEEP_TIME_SECONDS = 30
+AQUIRE_TIME_SECONDS = 5
+AQUIRE_ITERATIONS = 1
 
 
 def until_timeout(start_at_time=time.time(), seconds=0):
@@ -17,31 +21,16 @@ def until_timeout(start_at_time=time.time(), seconds=0):
     return time.time() - start_at_time <= seconds
 
 
-class GPS:
-    """GPS Serial constants. These allow finding the best uart device
-    and assign it to the proper queue and the database"""
-    vid = 0x2341
-    pid = 0x0042
-    vid_pid = (vid, pid)
-
-
-class Inverter:
-    """GPS Serial constants. These allow finding the best uart device
-    and assign it to the proper queue and the database"""
-    vid = 0x1A86
-    pid = 0x7523
-    vid_pid = (vid, pid)
-
-
 class Engine:
     def __init__(self):
         self.queue_gps = mp.JoinableQueue()
         self.queue_inverter = mp.JoinableQueue()
         self.serial_pool = []
-        self.data_gps = []
-        self.data_inverter = []
-        self.db = db.ElvicDatabase("/home/krzysztof/Programming/Python/Elvic/elvicdb.db")
+        self.gps = Device.GPS(vid=0x2341, pid=0x0042)
+        self.inverter = Device.Inverter(vid=0x1A86, pid=0x7523)
+        self.db = db.ElvicDatabase("elvicdb.db")
         self.save_info = SavingSignal.SavingSignalConsole()
+        self.xmpp = XMPPSender.MultiprocessingSender("elvic01@jappix.com", "elvic", "elvic02@jappix.com")
 
         #every new start of the program starts a new recording instance into db
         try:
@@ -50,11 +39,11 @@ class Engine:
             print("Could not connect to the database:\n'{}'".format(e))
             return
 
-        for url, device in self.discover_devices((GPS.vid_pid, Inverter.vid_pid)):
+        for url, device in self.discover_devices((self.gps.vid_pid, self.inverter.vid_pid)):
             print(url, device)
-            if GPS.vid_pid == url:
+            if self.gps.match_device_url(url):
                 self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_gps, {"port": device}))
-            if Inverter.vid_pid == url:
+            if self.inverter.match_device_url(url):
                 self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_inverter, {"port": device}, ))
 
     def __del__(self):
@@ -80,16 +69,32 @@ class Engine:
             raise StopIteration()
 
     def acquire_data(self):
-        self.save_info.on_save_start()
-
         for elem in self._queue_gps_iter():
-            self.db.insert_into_gps(elem)
+            self.gps.data.append(elem)
 
         for elem in self._queue_inverter_iter():
-            self.db.insert_into_power_inverter(elem)
+            self.inverter.data.append(elem)
+
+    def export_to_database(self):
+        self.save_info.on_save_start()
+        for elem in self.gps.data:
+            self.db.insert_into_gps(elem)
+
+        for elem in self.inverter.data:
+            self.db.insert_into_inverter(elem)
 
         self.db.commit()
+        self.gps.data.clear()
+        self.inverter.data.clear()
         self.save_info.on_save_stop()
+
+    def create_xmpp_msg(self):
+        gps_vtg = self.gps.get_last_VTG()
+        gps_gga = self.gps.get_last_GGA()
+        inverter = self.inverter.get_last_element()
+        gps = {"VTG": gps_vtg, "GGA": gps_gga}
+        msg = {"inv": inverter, "gps": gps}
+        return json.dumps(msg)
 
     def any_serials_alive(self):
         """Checks whether there is any active serial opened. The method returns
@@ -97,12 +102,19 @@ class Engine:
         return sum([process.is_alive() for process in self.serial_pool])
 
     def main(self):
+        self.xmpp.start()
         for process in self.serial_pool:
             process.start()
 
         while self.any_serials_alive():
-            time.sleep(SLEEP_TIME_SECONDS)
-            self.acquire_data()
+            for i in range(AQUIRE_ITERATIONS):
+                time.sleep(AQUIRE_TIME_SECONDS)
+                self.acquire_data()
+                msg = self.create_xmpp_msg()
+                print(msg)
+                self.xmpp.send_msg(msg)
+
+            self.export_to_database()
         else:
             print("No serials. Program terminate.")
 

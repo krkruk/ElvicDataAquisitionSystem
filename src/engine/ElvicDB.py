@@ -162,6 +162,6 @@ class ElvicDatabase:
         return self.cur.fetchall()
 
 if __name__ == "__main__":
-    db = ElvicDatabase("/home/krzysztof/Programming/Python/Elvic/elvicdb.db")
+    db = ElvicDatabase("elvicdb_test.db")
     for row in db.join_DataRecords_with_PowerInverter(4):
         print(row)
