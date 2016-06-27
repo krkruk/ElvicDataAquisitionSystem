@@ -11,6 +11,12 @@ import time
 SLEEP_TIME_SECONDS = 30
 
 
+def until_timeout(start_at_time=time.time(), seconds=0):
+    """Measure time and return whether elapsed time satisfies condition.
+    Requires start_at_time - time in useconds; seconds - timeout"""
+    return time.time() - start_at_time <= seconds
+
+
 class GPS:
     """GPS Serial constants. These allow finding the best uart device
     and assign it to the proper queue and the database"""
@@ -32,6 +38,8 @@ class Engine:
         self.queue_gps = mp.JoinableQueue()
         self.queue_inverter = mp.JoinableQueue()
         self.serial_pool = []
+        self.data_gps = []
+        self.data_inverter = []
         self.db = db.ElvicDatabase("/home/krzysztof/Programming/Python/Elvic/elvicdb.db")
         self.save_info = SavingSignal.SavingSignalConsole()
 

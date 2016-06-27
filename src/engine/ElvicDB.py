@@ -68,7 +68,12 @@ class ElvicDatabase:
     def __init__(self, name):
         """Initialize a database. Name - file name and/or directory"""
         self.data_records_current_id = -1
-        self.db = sqlite3.connect(name)
+        try:
+            self.db = sqlite3.connect(name)
+        except sqlite3.OperationalError:
+            with open("log.txt", 'a') as f:
+                f.write("Could not open a database at time {}".format(time.time()))
+            exit()
         self.cur = self.db.cursor()
         self._create_tables((CREATE_TABLE_POWERINVERTER,
                             CREATE_TABLE_GPS,
