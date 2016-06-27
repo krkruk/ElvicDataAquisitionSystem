@@ -9,10 +9,32 @@ import multiprocessing as mp
 import queue
 import time
 import json
+import os.path
 
-
-AQUIRE_TIME_SECONDS = 5
-AQUIRE_ITERATIONS = 1
+ACQUIRE_TIME_SECONDS = 5
+ACQUIRE_ITERATIONS = 1
+TEXT_DEFAULT_SETTINGS = """
+{
+    "ACQUIRE_ITERATIONS": 1,
+    "ACQUIRE_TIME_SECONDS": 5,
+    "db_name": "elvicdb.db",
+    "gps_param": {
+        "vid": 9025,
+        "pid": 66,
+        "serial_params": {}
+    },
+    "invert_param": {
+        "vid": 6790,
+        "pid": 29987,
+        "serial_params": {}
+    },
+    "xmpp_param": {
+        "jid": "",
+        "password": "",
+        "send_to": ""
+    }
+}
+"""
 
 
 def until_timeout(start_at_time=time.time(), seconds=0):
@@ -22,31 +44,45 @@ def until_timeout(start_at_time=time.time(), seconds=0):
 
 
 class Engine:
-    def __init__(self):
+    def __init__(self, db_name, gps_param, invert_param, xmpp_param, **kwargs):
         self.queue_gps = mp.JoinableQueue()
         self.queue_inverter = mp.JoinableQueue()
         self.serial_pool = []
-        self.gps = Device.GPS(vid=0x2341, pid=0x0042)
-        self.inverter = Device.Inverter(vid=0x1A86, pid=0x7523)
-        self.db = db.ElvicDatabase("elvicdb.db")
+        self.gps = Device.GPS(**gps_param)
+        self.inverter = Device.Inverter(**invert_param)
+        self.db = db.ElvicDatabase(db_name)
         self.save_info = SavingSignal.SavingSignalConsole()
-        self.xmpp = XMPPSender.MultiprocessingSender("elvic01@jappix.com", "elvic", "elvic02@jappix.com")
+        self.xmpp = XMPPSender.MultiprocessingSender(**xmpp_param)
 
-        #every new start of the program starts a new recording instance into db
-        try:
+        try:                                    #every new start of the program starts a new recording instance into db
             self.db.insert_into_DataRecords()
         except sqlite3.OperationalError as e:
             print("Could not connect to the database:\n'{}'".format(e))
             return
 
-        for url, device in self.discover_devices((self.gps.vid_pid, self.inverter.vid_pid)):
-            print(url, device)
-            if self.gps.match_device_url(url):
-                self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_gps, {"port": device}))
-            if self.inverter.match_device_url(url):
-                self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_inverter, {"port": device}, ))
+        self._assign_serial_ports()
+
+    def _assign_serial_ports(self):
+        """Assigns serial ports in the following order:
+        * Checks if port name was given. If true then it opens serial by name
+        * Looks up for the matching vid and pid parameters and discovers the name
+            of the serial port automatically."""
+        if self.gps.get_port():
+            self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_gps, self.gps.serial_params))
+        elif self.inverter.get_port():
+            self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_inverter, self.inverter.serial_params))
+        else:
+            for vid_pid, port_name in self.discover_devices((self.gps.vid_pid, self.inverter.vid_pid)):
+                print(vid_pid, port_name)
+                if self.gps.match_device_url(vid_pid) and not self.gps.get_port():
+                    self.gps.serial_params["port"] = port_name
+                    self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_gps, self.gps.serial_params))
+                if self.inverter.match_device_url(vid_pid) and not self.inverter.get_port():
+                    self.inverter.serial_params["port"] = port_name
+                    self.serial_pool.append(es.SerialMultiprocessReceiver(self.queue_inverter, self.inverter.serial_params))
 
     def __del__(self):
+        """Clean up"""
         for process in self.serial_pool:
             process.kill_serial()
         self.db.commit()
@@ -107,11 +143,10 @@ class Engine:
             process.start()
 
         while self.any_serials_alive():
-            for i in range(AQUIRE_ITERATIONS):
-                time.sleep(AQUIRE_TIME_SECONDS)
+            for i in range(ACQUIRE_ITERATIONS):
+                time.sleep(ACQUIRE_TIME_SECONDS)
                 self.acquire_data()
                 msg = self.create_xmpp_msg()
-                print(msg)
                 self.xmpp.send_msg(msg)
 
             self.export_to_database()
@@ -132,7 +167,20 @@ class Engine:
 
 
 if __name__ == "__main__":
-    engine = Engine()
+    SETTINGS_FILE = "settings.json"
+    if os.path.isfile(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r') as file:
+            settings = json.load(file)
+        print("Settings loaded")
+    else:
+        with open(SETTINGS_FILE, 'w') as file:
+            file.write(TEXT_DEFAULT_SETTINGS)
+        settings = json.loads(TEXT_DEFAULT_SETTINGS)
+
+    ACQUIRE_ITERATIONS = settings["ACQUIRE_ITERATIONS"]
+    ACQUIRE_TIME_SECONDS = settings["ACQUIRE_TIME_SECONDS"]
+
+    engine = Engine(**settings)
     try:
         engine.main()
     except KeyboardInterrupt:

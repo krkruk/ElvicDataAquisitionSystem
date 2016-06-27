@@ -28,18 +28,28 @@ class Sender(sleekxmpp.ClientXMPP):
 
 
 class MultiprocessingSender(mp.Process):
-    def __init__(self, jid, pwd, send_to_addr):
+    def __init__(self, **kwargs):
         super(MultiprocessingSender, self).__init__()
         self.pipe_send, self.pipe_recv = mp.Pipe()
-        self.sender = Sender(jid, pwd, self.pipe_recv, send_to_addr)
+        self.kill_process = mp.Event()
+        self.kill_process.clear()
+        if all(kwargs.values()):
+            self.sender = Sender(kwargs["jid"],
+                                 kwargs["password"],
+                                 self.pipe_recv,
+                                 kwargs["send_to"])
+        else:
+            self.kill_process.set()
+
         self.daemon = True
 
     def run(self):
-        if self.sender.connect():
-            self.sender.process(block=True)
-        else:
-            print("Could not connect to the network.")
+        if not self.kill_process.is_set():
+            if self.sender.connect():
+                self.sender.process(block=True)
+            else:
+                print("Could not connect to the network.")
 
     def send_msg(self, msg=""):
-        if msg:
+        if msg and not self.kill_process.is_set():
             self.pipe_send.send(msg)

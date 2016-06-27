@@ -11,4 +11,9 @@ engine/__pycache__
 tests/__pycache__
 
 *.pyc
+
+#ignore database
 *.db
+
+#ignore settings
+*.json
