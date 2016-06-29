@@ -34,10 +34,9 @@ class DataSplitter(mp.Process):
         self.gps_pipe.send(gps)
 
 
-
 class PlotGPS:
     def __init__(self):
-        self.zoom = 19
+        self.zoom = 17
         self.scatter_params = {"c": "magenta", "edgecolors": "k", "marker": '*', "s": 1500, "alpha": 0.9}
         self.london_aquatics_centre_corners = (
             -0.01377,  # lower left corner longitude

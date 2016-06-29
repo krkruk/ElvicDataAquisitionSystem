@@ -12,12 +12,13 @@ class CoordinateAnimation:
         self.zoom = zoom
         self.scatter_params = scatter_params
         self.data_pipe = data_pipe
-        self.x, self.y = np.random.random((2, 2))  # params just for sake of init
+        self.plot_data = np.zeros(shape=(1, 2))
         self.fig, self.ax = plt.figure(figsize=figsize), plt.subplot(111)
         self._init_basemap()
         self.anim_scatter = animation.FuncAnimation(self.fig, self._update_scatter,
                                                     init_func=self._scatter_init)
-        self.scat = None
+        self.plot_scat = None
+        self.plot_plot = None
 
     def _init_basemap(self):
         self.m = geotiler.Map(extent=self.corners, zoom=self.zoom)
@@ -31,31 +32,33 @@ class CoordinateAnimation:
         self.bmap.imshow(self.img, interpolation='lanczos', origin='upper')
 
     def _scatter_init(self):
-        self.scat = plt.scatter(self.x, self.y,
-                                **self.scatter_params)
+        self.plot_scat = plt.scatter(self.plot_data[:, 0], self.plot_data[:, 1],
+                                     **self.scatter_params)
+
+        self.plot_plot = plt.plot(self.plot_data[:, 0], self.plot_data[:, 1])
 
     def _update_scatter(self, i):
-        # x, y = self.bmap(self.test_points[:, 0], self.test_points[:, 1])
-        # array = np.array([elem for elem in zip(x, y)])
         try:
             if not self.data_pipe.poll(3):
-                return self.scat,
+                return self.plot_scat,
         except KeyboardInterrupt:
-            return self.scat,
+            return self.plot_scat,
         try:
             gps_json = self.data_pipe.recv()
         except KeyboardInterrupt:
-            return self.scat,
+            return self.plot_scat,
 
         gga = gps_json['gga']
         try:
             parsed = pynmea2.parse(gga)
         except pynmea2.nmea.ChecksumError:
-            return self.scat,
+            return self.plot_scat,
 
         array = np.array(self.bmap(parsed.longitude, parsed.latitude))
-        self.scat.set_offsets(array)
-        return self.scat,
+        self.plot_data = np.vstack( (self.plot_data, array) )
+        self.plot_scat.set_offsets(array)
+        plt.plot(self.plot_data[1:, 0], self.plot_data[1:, 1])
+        return self.plot_scat,
 
     def plot(self):
         plt.show()
