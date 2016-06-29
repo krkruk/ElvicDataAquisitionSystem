@@ -3,6 +3,7 @@ from mpl_toolkits.basemap import Basemap
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+import pynmea2
 
 
 class CoordinateAnimation:
@@ -38,9 +39,24 @@ class CoordinateAnimation:
                                 **self.scatter_params)
 
     def _update_plot(self, i):
-        x, y = self.bmap(self.test_points[:, 0], self.test_points[:, 1])
-        array = np.array([elem for elem in zip(x, y)])
-        self.scat.set_offsets(array[np.random.randint(0, 3)])
+        # x, y = self.bmap(self.test_points[:, 0], self.test_points[:, 1])
+        # array = np.array([elem for elem in zip(x, y)])
+        try:
+            if not self.data_pipe.poll(3):
+                return self.scat,
+        except KeyboardInterrupt:
+            return self.scat,
+        try:
+            gps_json = self.data_pipe.recv()
+        except KeyboardInterrupt:
+            return self.scat,
+
+        gga = gps_json['gga']
+        parsed = pynmea2.parse(gga)
+        array = np.array(self.bmap(parsed.longitude, parsed.latitude))
+        print(parsed.longitude, parsed.latitude)
+        print(array)
+        self.scat.set_offsets(array)
         return self.scat,
 
     def plot(self):
@@ -48,6 +64,7 @@ class CoordinateAnimation:
 
 
 if __name__ == "__main__":
+    import multiprocessing as mp
     zoom = 16
     scatter_params = {"c": "magenta", "edgecolors": "k", "marker": '*', "s": 1500, "alpha": 0.9}
     london_aquatics_centre_corners = (
@@ -56,5 +73,6 @@ if __name__ == "__main__":
         -0.0074,  # upper right corner longitude
         51.5437,  # upper right corner latitude
     )
-    anim = CoordinateAnimation(london_aquatics_centre_corners, zoom=zoom, scatter_params=scatter_params)
+    a, b = mp.Pipe()
+    anim = CoordinateAnimation(london_aquatics_centre_corners, zoom, a, scatter_params=scatter_params)
     anim.plot()
