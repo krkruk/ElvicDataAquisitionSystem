@@ -1,5 +1,6 @@
 from engine import CoordinateAnimation
 from engine import DataReceiver
+from engine import EchoMiscellaneous
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 import json
@@ -36,9 +37,8 @@ class DataSplitter(mp.Process):
 
 class PlotGPS:
     def __init__(self):
-        self.zoom = 17
+        self.zoom = 19
         self.scatter_params = {"c": "magenta", "edgecolors": "k", "marker": '*', "s": 1500, "alpha": 0.9}
-        #geo:51.53727,-0.00813?z=17
         self.london_aquatics_centre_corners = (
             -0.01377,  # lower left corner longitude
             51.53489,  # lower left corner latitude
@@ -56,9 +56,11 @@ class PlotGPS:
                                                             self.plot_to_plot_class,
                                                             scatter_params=self.scatter_params)
         self.xmpp = DataReceiver.XmppDataReceiver("elvic02@jappix.com", "elvic", self.xmpp_recv_msg)
+        self.echo = EchoMiscellaneous.EchoMiscellaneous(self.telemetry_to_process)
 
     def plot(self):
         self.data_splitter.start()
+        self.echo.start()
         self.xmpp.start()
         self.anim.plot()
         plt.show()

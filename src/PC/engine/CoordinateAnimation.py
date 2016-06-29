@@ -15,13 +15,9 @@ class CoordinateAnimation:
         self.x, self.y = np.random.random((2, 2))  # params just for sake of init
         self.fig, self.ax = plt.figure(figsize=figsize), plt.subplot(111)
         self._init_basemap()
-        self.anim = animation.FuncAnimation(self.fig, self._update_plot,
-                                            init_func=self._plot_init)
-
+        self.anim_scatter = animation.FuncAnimation(self.fig, self._update_scatter,
+                                                    init_func=self._scatter_init)
         self.scat = None
-        self.test_points = np.array([[-0.0097, 51.5407],
-                       [-0.0120, 51.5417],
-                       [-0.0158, 51.5407]])
 
     def _init_basemap(self):
         self.m = geotiler.Map(extent=self.corners, zoom=self.zoom)
@@ -34,11 +30,11 @@ class CoordinateAnimation:
 
         self.bmap.imshow(self.img, interpolation='lanczos', origin='upper')
 
-    def _plot_init(self):
+    def _scatter_init(self):
         self.scat = plt.scatter(self.x, self.y,
                                 **self.scatter_params)
 
-    def _update_plot(self, i):
+    def _update_scatter(self, i):
         # x, y = self.bmap(self.test_points[:, 0], self.test_points[:, 1])
         # array = np.array([elem for elem in zip(x, y)])
         try:
@@ -52,10 +48,12 @@ class CoordinateAnimation:
             return self.scat,
 
         gga = gps_json['gga']
-        parsed = pynmea2.parse(gga)
+        try:
+            parsed = pynmea2.parse(gga)
+        except pynmea2.nmea.ChecksumError:
+            return self.scat,
+
         array = np.array(self.bmap(parsed.longitude, parsed.latitude))
-        print(parsed.longitude, parsed.latitude)
-        print(array)
         self.scat.set_offsets(array)
         return self.scat,
 

@@ -16,13 +16,12 @@ class XmppReceiverClient(sleekxmpp.ClientXMPP):
         print("In init")
 
     def start_session(self, event):
-        print("session started")
+        print("XMPP session started")
         self.send_presence()
         self.get_roster()
 
     def message(self, msg):
         if msg['type'] in ('chat', 'normal'):
-            print(msg["body"])
             try:
                 self.pipe_pass_data.send(msg["body"])
             except KeyboardInterrupt:
@@ -39,7 +38,7 @@ class XmppDataReceiver(mp.Process):
         self.xmpp = XmppReceiverClient(jid, password, self.send_pipe)
 
     def run(self):
-        print("in run")
+        print("In xmpp run")
         if self.xmpp.connect():
             self.xmpp.process(block=True)
         else:
