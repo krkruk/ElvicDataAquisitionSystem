@@ -49,7 +49,7 @@ class PlotGPS:
         self.plot_to_splitter, self.plot_to_plot_class = mp.Pipe()
         self.telemetry_to_splitter, self.telemetry_to_process = mp.Pipe()
 
-        self.data_splitter = DataSplitter(self.xmpp_to_splitter, self.telemetry_to_process, self.plot_to_splitter)
+        self.data_splitter = DataSplitter(self.xmpp_to_splitter, self.telemetry_to_splitter, self.plot_to_splitter)
 
         self.anim = CoordinateAnimation.CoordinateAnimation(self.london_aquatics_centre_corners,
                                                             self.zoom,
