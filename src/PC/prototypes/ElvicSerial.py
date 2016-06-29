@@ -56,21 +56,26 @@ if __name__ == "__main__":
     queue = mp.Queue()
     p = SerialMultiprocessReceiver(queue, {"port": "/dev/ttyUSB0"})
     p.start()
+    omit = True
 
     while True:
         data = ""
+        line = ""
         try:
             data = queue.get()
         except KeyboardInterrupt:
             break
         try:
-            line = data.decode("ascii")
+            if omit:
+                omit = False
+            else:
+                line = data.decode("ascii")
         except KeyboardInterrupt:
             break
 
         if "$GPGGA" in line:
             parsed = pynmea2.parse(line)
-            print(parsed.lat)
+            print(line, "------", "lon/lat:", "{}/{}".format(parsed.longitude, parsed.latitude), parsed.num_sats)
 
 
     p.kill_serial()

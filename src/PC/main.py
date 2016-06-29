@@ -1,31 +1,31 @@
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from engine import CoordinateAnimation
+from engine import DataReceiver
+import multiprocessing as mp
 import numpy as np
 
-dt = 0.005
-n=20
-L = 1
-particles=np.zeros(n,dtype=[("position", float , 2),
-                            ("velocity", float ,2),
-                            ("force", float ,2),
-                            ("size", float , 1)])
 
-particles["position"]=np.random.uniform(0,L,(n,2));
-particles["velocity"]=np.zeros((n,2));
-particles["size"]=0.5*np.ones(n);
+class PlotGPS:
+    def __init__(self):
+        self.zoom = 16
+        self.scatter_params = {"c": "magenta", "edgecolors": "k", "marker": '*', "s": 1500, "alpha": 0.9}
+        self.london_aquatics_centre_corners = (
+            -0.0184,  # lower left corner longitude
+            51.5378,  # lower left corner latitude
+            -0.0074,  # upper right corner longitude
+            51.5437,  # upper right corner latitude
+        )
+        # self.send, self.recv = mp.Pipe()
+        # self.anim = CoordinateAnimation.CoordinateAnimation(self.london_aquatics_centre_corners,
+        #                                                     self.zoom,
+        #                                                     self.send,
+        #                                                     scatter_params=self.scatter_params)
+        # self.xmpp = DataReceiver.XmppDataReceiver("elvic02@jappix.com", "elvic", self.recv)
 
-fig = plt.figure(figsize=(7,7))
-ax = plt.axes(xlim=(0,L),ylim=(0,L))
-scatter=ax.scatter(particles["position"][:,0], particles["position"][:,1])
+    def plot(self):
+        self.xmpp.start()
+        self.anim.plot()
 
-def update(frame_number):
-    particles["force"]=np.random.uniform(-2,2.,(n,2));
-    particles["velocity"] = particles["velocity"] + particles["force"]*dt
-    particles["position"] = particles["position"] + particles["velocity"]*dt
 
-    particles["position"] = particles["position"]%L
-    scatter.set_offsets(particles["position"])
-    return scatter,
-
-anim = FuncAnimation(fig, update, interval=10)
-plt.show()
+if __name__ == "__main__":
+    gps = PlotGPS()
+    gps.plot()

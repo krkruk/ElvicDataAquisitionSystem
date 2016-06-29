@@ -28,21 +28,18 @@ bmap = Basemap(
 bmap.imshow(img, interpolation='lanczos', origin='upper')
 # x, y = bmap(london_aquatics_centre[0], london_aquatics_centre[1])
 
-aa = np.array( [[-0.0097, 51.5407],
-               [-0.0120, 51.5417],
-               [-0.0158, 51.5407]])
-# x, y = bmap( (
-#                 -0.0097,
-#                 -0.0120,
-#                 -0.0158
-#               ),
-#              (
-#                 51.5407,
-#                 51.5417,
-#                 51.5407
-#              )
-# )
-x, y = bmap(aa[:,0],aa[:,1])
+x, y = bmap( (
+                -0.0097,
+                -0.0120,
+                -0.0158
+              ),
+             (
+                51.5407,
+                51.5417,
+                51.5407
+             )
+)
+
 scat = plt.scatter(x=x,
             y=y,
             c="magenta",
